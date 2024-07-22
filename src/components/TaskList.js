@@ -86,7 +86,9 @@ const TaskList = ({ tasks, onEdit, onDelete, onView }) => {
       {sortedTasks.map((task) => (
         <div key={task._id} className="p-4 mb-4 bg-gray-100 rounded-lg flex justify-between items-center">
           <div>
-            <h3 className="font-semibold">{task.title}</h3>
+            <h3 className="font-semibold truncate">
+              {task.title.length > 20 ? task.title.substring(0, 20) + '...' : task.title}
+              </h3>
             <p className="text-sm text-gray-600">
               {task.description.length > 20 ? task.description.substring(0, 20) + '...' : task.description}
             </p>

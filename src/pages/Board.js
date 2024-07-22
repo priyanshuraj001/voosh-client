@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../services/api';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import TaskDetailModal from '../components/TaskDetails';
 
-const TaskBoard = () => {
+const Board = () => {
   const [tasks, setTasks] = useState([]);
   const [selectedTask, setSelectedTask] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -11,6 +12,7 @@ const TaskBoard = () => {
     const fetchTasks = async () => {
       try {
         const res = await axios.get('/tasks');
+        console.log('Fetched tasks:', res.data); // Debugging log
         setTasks(res.data);
       } catch (error) {
         console.error('Error fetching tasks:', error);
@@ -20,6 +22,8 @@ const TaskBoard = () => {
   }, []);
 
   const handleDropTask = async (taskId, status) => {
+    console.log(taskId, status, 'hii');
+
     try {
       const res = await axios.put(`/tasks/${taskId}`, { status });
       setTasks((prevTasks) =>
@@ -31,26 +35,32 @@ const TaskBoard = () => {
   };
 
   const onDragEnd = async (result) => {
+    console.log(result, 'hii');
+
     const { destination, source, draggableId } = result;
+    console.log('Drag result:', result); // Debugging log
 
     if (!destination) {
-      console.log('Dropped outside of the droppable area');
       return;
     }
 
     const updatedStatus = destination.droppableId;
     if (source.droppableId === updatedStatus) {
-      console.log('Dropped in the same column');
-      return;
+      return; // No status change if dropped in the same column
     }
 
-    console.log('Draggable ID:', draggableId);
-    console.log('Tasks:', tasks);
+    // Update the UI immediately
+    setTasks((prevTasks) => {
+      const draggedTask = prevTasks.find((task) => task._id === draggableId);
+      if (!draggedTask) return prevTasks;
 
-    const updatedTasks = tasks.map((task) =>
-      task._id === draggableId ? { ...task, status: updatedStatus } : task
-    );
-    setTasks(updatedTasks);
+      // Update the status in the local state
+      const updatedTasks = prevTasks.map((task) =>
+        task._id === draggableId ? { ...task, status: updatedStatus } : task
+      );
+
+      return updatedTasks;
+    });
 
     try {
       await handleDropTask(draggableId, updatedStatus);
@@ -78,66 +88,49 @@ const TaskBoard = () => {
   return (
     <div className="w-screen h-screen bg-gray-100 p-4 flex flex-col items-center">
       <DragDropContext onDragEnd={onDragEnd}>
-        <Droppable droppableId="board" direction="horizontal">
-          {(provided) => (
-            <div
-              ref={provided.innerRef}
-              {...provided.droppableProps}
-              className="flex overflow-x-auto space-x-4 pb-4 w-full max-w-screen-xl"
-            >
-              {Object.entries(columns).map(([status, tasks]) => (
-                <Droppable key={status} droppableId={status} type="task">
-                  {(provided) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      className="bg-white p-6 rounded-lg shadow-lg min-w-[300px] flex-shrink-0"
-                    >
-                      <h2 className="text-2xl font-semibold mb-4 capitalize text-gray-800">{status}</h2>
-                      {tasks.map((task, index) => (
-                        <Draggable key={task._id} draggableId={task._id} index={index}>
-                          {(provided) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              onClick={() => openModal(task)}
-                              className="bg-gray-50 p-4 mb-4 shadow rounded-lg transition-transform duration-300 ease-in-out hover:shadow-xl cursor-pointer"
-                              style={{ ...provided.draggableProps.style }}
-                            >
-                              <h3 className="font-semibold text-lg text-gray-900">{task.title}</h3>
-                              <p className="text-gray-700 truncate">{task.description}</p>
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
-              ))}
-            </div>
-          )}
-        </Droppable>
+        <div className="flex overflow-x-auto space-x-4 pb-4 w-full max-w-screen-xl">
+          {Object.entries(columns).map(([status, tasks]) => (
+            <Droppable key={status} droppableId={status} type="task">
+              {(provided) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className="bg-white p-6 rounded-lg shadow-lg w-80 flex-shrink-0"
+                >
+                  <h2 className="text-2xl font-semibold mb-4 capitalize text-gray-800">{status}</h2>
+                  {tasks.map((task, index) => (
+                    <Draggable key={task._id} draggableId={task._id} index={index}>
+                      {(provided) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          {...provided.dragHandleProps}
+                          onClick={() => openModal(task)}
+                          className="bg-gray-50 p-4 mb-4 shadow rounded-lg transition-transform duration-300 ease-in-out hover:shadow-xl cursor-pointer"
+                          style={{ ...provided.draggableProps.style }}
+                        >
+                          <h3 className="font-semibold text-lg text-gray-900 truncate">{task.title}</h3>
+                          <p className="text-gray-700 truncate">{task.description}</p>
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          ))}
+        </div>
       </DragDropContext>
 
-      {/* Task Detail Modal */}
       {isModalOpen && selectedTask && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-lg w-full">
-            <h2 className="text-2xl font-semibold mb-4 text-gray-800">{selectedTask.title}</h2>
-            <p className="text-gray-700 mb-4">{selectedTask.description}</p>
-            <button
-              onClick={closeModal}
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-            >
-              Close
-            </button>
-          </div>
-        </div>
+        <TaskDetailModal 
+          task={selectedTask}
+          onClose={closeModal}
+        />
       )}
     </div>
   );
 };
 
-export default TaskBoard;
+export default Board;
